@@ -15,9 +15,7 @@ datasets/
 ref/
 checkpoints/
 weights/
-outputs/
 runs/
-logs/
 wandb/
 tensorboard/
 *.pt

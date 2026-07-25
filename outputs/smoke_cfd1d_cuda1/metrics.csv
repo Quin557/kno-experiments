@@ -1,0 +1,2 @@
+epoch,seconds,train_step_rel_l2,train_full_rel_l2,test_step_rel_l2,test_full_rel_l2,train_pred_mse,train_recon_mse,test_pred_mse,test_recon_mse,lr
+0,5.824927,9.38593275e-01,6.77538089e-01,9.04413438e-01,9.04446745e-01,1.51641296e+04,7.32885099e+02,1.34836645e+04,6.60511687e+02,1.00000000e-03

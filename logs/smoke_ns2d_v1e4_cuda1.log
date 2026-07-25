@@ -1,0 +1,4 @@
+nohup: ignoring input
+NS data loaded: train (1000, 64, 64, 10) -> (1000, 64, 64, 10), test (200, 64, 64, 10)
+parameters: 526059
+epoch 0000 | 16.71s | train_full 3.685087e-01 | test_full 2.620428e-01

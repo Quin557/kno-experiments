@@ -1,0 +1,4 @@
+nohup: ignoring input
+CFD-1D data loaded: x (128, 10, 3), y (128, 21, 3), grid (128, 1)
+parameters: 35905
+epoch 0000 | 5.82s | train_full 6.775381e-01 | test_full 9.044467e-01
