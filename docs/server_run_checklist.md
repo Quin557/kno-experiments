@@ -2,7 +2,7 @@
 
 本文档假设当前服务器较忙，只有物理 GPU `cuda=1` 空闲。因此第一阶段全部命令都以单卡 `CUDA_VISIBLE_DEVICES=1` 为前提。等服务器空闲后，再切换为多 GPU 并行跑不同实验。
 
-> 注意：当前仓库第一版已经完成实验设计和目录规范；正式训练入口 `experiments/train_kno_amfno.py` 会在下一步实现。本文档先固定服务器操作流程和命令模板。
+> 注意：正式训练入口是 `experiments/train_kno_amfno.py`。该脚本已经内置 compact KNO 核心实现，不需要在服务器上安装 `koopmanlab` 包。
 
 ## 1. Clone And Update Repo
 
@@ -43,7 +43,7 @@ export CUDA_VISIBLE_DEVICES=1
 
 ## 3. Prepare External Code
 
-KNO 官方仓库只作为依赖和参考，不直接提交到本实验仓库。
+KNO 官方仓库只作为论文代码参考和版本记录，不直接提交到本实验仓库。当前训练脚本不依赖 `import koopmanlab`，因此如果 `pip install -e external/KoopmanLab` 因镜像、`torchvision`、`numpy.lib.arraypad` 等问题失败，可以完全跳过安装。
 
 ```bash
 mkdir -p external
@@ -95,8 +95,9 @@ conda activate kno-amfno
 
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install numpy scipy h5py matplotlib tqdm pandas pyyaml
-pip install -e external/KoopmanLab
 ```
+
+如果当前环境已经有 PyTorch，例如服务器上的 `am-fno` 环境，可以直接使用它，不需要新建环境，也不需要安装 KoopmanLab。
 
 再次验证：
 
