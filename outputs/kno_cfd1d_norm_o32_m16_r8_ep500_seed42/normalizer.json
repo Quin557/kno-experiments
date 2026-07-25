@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "eps": 1e-06,
+  "mean": [
+    5.901447772979736,
+    59.42569351196289,
+    -0.013067927211523056
+  ],
+  "std": [
+    3.443497896194458,
+    30.31511116027832,
+    0.49779248237609863
+  ],
+  "type": "per_variable_train_standardization",
+  "variable_names": [
+    "density",
+    "pressure",
+    "Vx"
+  ]
+}
