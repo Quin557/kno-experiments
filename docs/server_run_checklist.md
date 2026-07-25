@@ -169,6 +169,122 @@ ls -lh "$DATA_ROOT/$NS2D_V1E4"
 6. CFD-2D medium run。
 7. Full runs。
 
+### 6.0 Running Safely After SSH Disconnects
+
+长期训练不要直接在普通 SSH 前台运行。推荐优先使用 `tmux`，备用方案是 `nohup`。
+
+推荐选择：
+
+| Method | Use case | Pros | Cons |
+|---|---|---|---|
+| `tmux` | 需要随时进去看进度、手动停止、继续操作 | 最适合实验；交互性好；SSH 断开不影响训练 | 需要记住 session 名 |
+| `nohup` | 只想把一条命令丢到后台 | 简单；断线后继续跑 | 不方便交互；停止需要找 PID |
+
+本项目每个训练都会自动写结构化结果：
+
+```text
+outputs/<run_name>/
+  args.json
+  env.txt
+  metrics.csv
+  checkpoint_best.pt      # only when --save-checkpoint is set; ignored by git
+  checkpoint_last.pt      # only when --save-checkpoint is set; ignored by git
+```
+
+同时建议把控制台输出保存到：
+
+```text
+logs/<run_name>.log
+```
+
+创建目录：
+
+```bash
+mkdir -p logs outputs results reports
+```
+
+#### tmux workflow
+
+新建 session：
+
+```bash
+tmux new -s kno_cuda1
+```
+
+在 tmux 里运行训练命令。运行后，如果想断开 SSH 或离开 session，按：
+
+```text
+Ctrl-b 然后按 d
+```
+
+查看已有 session：
+
+```bash
+tmux ls
+```
+
+重新进入：
+
+```bash
+tmux attach -t kno_cuda1
+```
+
+如果 session 已经结束或要删除：
+
+```bash
+tmux kill-session -t kno_cuda1
+```
+
+#### nohup workflow
+
+如果不用 `tmux`，可以使用 `nohup`：
+
+```bash
+source configs/data_paths.env
+export CUDA_VISIBLE_DEVICES=1
+mkdir -p logs
+
+nohup python experiments/train_kno_amfno.py \
+  --benchmark ns2d \
+  --ns-file "$DATA_ROOT/$NS2D_V1E4" \
+  --run-name kno_ns2d_v1e4_o32_m16_r8_ep100_cuda1 \
+  --epochs 100 \
+  --batch-size 10 \
+  --o 32 \
+  --modes 16 \
+  --decompose 8 \
+  --t-in 10 \
+  --t-out 10 \
+  --device cuda \
+  --output-dir outputs \
+  > logs/kno_ns2d_v1e4_ep100_cuda1.log 2>&1 &
+```
+
+记录 PID：
+
+```bash
+echo $!
+```
+
+查看进度：
+
+```bash
+tail -f logs/kno_ns2d_v1e4_ep100_cuda1.log
+tail -n 5 outputs/kno_ns2d_v1e4_o32_m16_r8_ep100_cuda1/metrics.csv
+```
+
+查找后台进程：
+
+```bash
+ps -u "$USER" -f | grep train_kno_amfno.py | grep -v grep
+```
+
+停止某个后台训练：
+
+```bash
+kill <PID>
+```
+
 ### 6.1 Smoke tests
 
 Smoke test 只跑 1 epoch，目的不是看结果，而是确认：
@@ -242,6 +358,7 @@ NS-2D v1e-4：
 ```bash
 source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
+mkdir -p logs
 
 python experiments/train_kno_amfno.py \
   --benchmark ns2d \
@@ -264,6 +381,7 @@ CFD-1D：
 ```bash
 source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
+mkdir -p logs
 
 python experiments/train_kno_amfno.py \
   --benchmark cfd1d \
@@ -289,6 +407,7 @@ CFD-2D：
 ```bash
 source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
+mkdir -p logs
 
 python experiments/train_kno_amfno.py \
   --benchmark cfd2d \
