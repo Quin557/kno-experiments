@@ -12,6 +12,7 @@ env/
 # Large datasets and generated artifacts
 data/
 datasets/
+ref/
 checkpoints/
 weights/
 outputs/
