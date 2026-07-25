@@ -5,6 +5,7 @@
 | Benchmark | Run | Best test full rel L2 | Last test full rel L2 | Assessment |
 |---|---|---:|---:|---|
 | NS-2D v1e-4 | `kno_ns2d_v1e4_o32_m16_r8_ep500_seed42` | `6.2351e-02` | `6.2378e-02` | Valid KNO result; stable convergence. |
+| NS-2D v1e-3 | `kno_ns2d_v1e3_o32_m16_r8_ep500_seed42` | `3.5535e-03` | `4.0387e-03` | Stable supplemental KNO result; not directly comparable with the v1e-4 AM-FNO local split. |
 | CFD-1D | `kno_cfd1d_o32_m16_r8_ep500_seed42` | `4.2512e-01` | `9.9900e-01` | Completed but unsuitable; likely needs variable normalization/stabilization. |
 | CFD-1D | `kno_cfd1d_norm_o32_m16_r8_ep500_seed42` | `3.5024e-02` | `3.5331e-02` | Stable after per-variable CFD normalization; use this as the current KNO CFD-1D result. |
 
@@ -17,4 +18,4 @@
 
 ## Recommendation
 
-The CFD normalization fix is effective: the old CFD-1D run diverged after an early best epoch, while the normalized run remains stable through epoch 499. Next, run `CFD-2D` with the same normalization path. If it is stable at 100 epochs, continue to the full 500-epoch CFD-2D run. Use `NS-2D v1e-3` as a secondary supplement after the CFD-2D main result is secured.
+NS-2D v1e-3 is complete and healthy. Next, run `CFD-2D` with the same normalization path used by the successful CFD-1D run. Start with 100 epochs; if `test_full_rel_l2` is decreasing or stable rather than diverging, continue to the full 500-epoch CFD-2D run.
