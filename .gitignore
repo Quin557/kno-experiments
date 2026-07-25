@@ -1,0 +1,53 @@
+# Python / environment
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Large datasets and generated artifacts
+data/
+datasets/
+checkpoints/
+weights/
+outputs/
+runs/
+logs/
+wandb/
+tensorboard/
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.hdf5
+*.mat
+*.npy
+*.npz
+
+# Keep lightweight experiment records in git when copied here deliberately.
+!results/
+!results/.gitkeep
+!reports/
+!reports/.gitkeep
+!experiments/
+!experiments/.gitkeep
+!scripts/
+!scripts/.gitkeep
+
+# Local private config
+configs/data_paths.env
+*.local.env
+
+# Third-party source trees are cloned locally; do not vendor nested git repos.
+external/*
+!external/README.md
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,7 @@
+benchmark,metric,amfno_mlp_paper,amfno_kan_paper,amfno_local_repro,notes
+NS-2D,test_step_rel_l2,,,"1.936595e-02","Local repro uses ns_V1e-4_N10000_T30.mat; paper Table 2 reports full/main value 8.51e-2."
+NS-2D,test_full_rel_l2,8.51e-2,1.08e-1,2.484761e-02,"Do not directly rank paper vs local repro unless data split/version is confirmed."
+CFD-1D,test_step_rel_l2,1.47e-2,1.83e-2,1.484995e-02,"Step metric is close to paper AM-FNO(MLP)."
+CFD-1D,test_full_rel_l2,,,1.516407e-02,"Local full rollout metric."
+CFD-2D,test_step_rel_l2,2.16e-3,2.70e-3,2.744214e-03,"Same order as paper but above AM-FNO(MLP) paper result."
+CFD-2D,test_full_rel_l2,,,2.768594e-03,"Local full rollout metric."
