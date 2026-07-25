@@ -172,6 +172,9 @@ ls -lh "$DATA_ROOT/$NS2D_V1E4"
 ### 6.0 Nohup Workflow
 
 长期训练不要直接在普通 SSH 前台运行。本项目以 `nohup` 为主：每个实验一条后台命令，控制台输出写入 `logs/<run_name>.log`，结构化指标写入 `outputs/<run_name>/metrics.csv`。
+建议使用 `python -u` 启动训练，避免 SSH 断开后日志因为缓冲而长时间只显示 `nohup: ignoring input`。
+
+根据首轮 CFD-1D full run 的结果，CFD 分支已默认启用训练集逐变量标准化，并在 `outputs/<run_name>/normalizer.json` 记录统计量。后续 CFD 主实验建议使用带 `norm` 的 run name；旧的 `kno_cfd1d_o32_m16_r8_ep500_seed42` 可作为未归一化对照，不建议作为最终主结果。
 
 本项目每个训练都会自动写结构化结果：
 
@@ -203,7 +206,7 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   ... \
   > logs/<run_name>.log 2>&1 &
 ```
@@ -250,7 +253,7 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark ns2d \
   --ns-file "$DATA_ROOT/$NS2D_V1E4" \
   --run-name smoke_ns2d_v1e4_cuda1 \
@@ -270,7 +273,7 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark ns2d \
   --ns-file "$DATA_ROOT/$NS2D_V1E3" \
   --run-name smoke_ns2d_v1e3_cuda1 \
@@ -290,18 +293,19 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd1d \
   --cfd-file "$DATA_ROOT/$CFD1D_FILE" \
-  --run-name smoke_cfd1d_cuda1 \
+  --run-name smoke_cfd1d_norm_cuda1 \
   --epochs 1 \
   --batch-size 32 \
   --device cuda \
   --output-dir outputs \
+  --cfd-normalize \
   --reduced-resolution 8 \
   --reduced-resolution-t 5 \
   --reduced-batch 5 \
-  > logs/smoke_cfd1d_cuda1.log 2>&1 &
+  > logs/smoke_cfd1d_norm_cuda1.log 2>&1 &
 
 echo $!
 ```
@@ -313,18 +317,19 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd2d \
   --cfd-file "$DATA_ROOT/$CFD2D_FILE" \
-  --run-name smoke_cfd2d_cuda1 \
+  --run-name smoke_cfd2d_norm_cuda1 \
   --epochs 1 \
   --batch-size 8 \
   --device cuda \
   --output-dir outputs \
+  --cfd-normalize \
   --reduced-resolution 2 \
   --reduced-resolution-t 1 \
   --reduced-batch 5 \
-  > logs/smoke_cfd2d_cuda1.log 2>&1 &
+  > logs/smoke_cfd2d_norm_cuda1.log 2>&1 &
 
 echo $!
 ```
@@ -340,7 +345,7 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark ns2d \
   --ns-file "$DATA_ROOT/$NS2D_V1E4" \
   --run-name kno_ns2d_v1e4_o32_m16_r8_ep100_cuda1 \
@@ -365,7 +370,7 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark ns2d \
   --ns-file "$DATA_ROOT/$NS2D_V1E3" \
   --run-name kno_ns2d_v1e3_o32_m16_r8_ep100_cuda1 \
@@ -390,10 +395,10 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd1d \
   --cfd-file "$DATA_ROOT/$CFD1D_FILE" \
-  --run-name kno_cfd1d_o32_m16_r8_ep100_cuda1 \
+  --run-name kno_cfd1d_norm_o32_m16_r8_ep100_cuda1 \
   --epochs 100 \
   --batch-size 32 \
   --o 32 \
@@ -404,9 +409,11 @@ nohup python experiments/train_kno_amfno.py \
   --reduced-resolution 8 \
   --reduced-resolution-t 5 \
   --reduced-batch 5 \
+  --cfd-normalize \
+  --max-grad-norm 1.0 \
   --device cuda \
   --output-dir outputs \
-  > logs/kno_cfd1d_ep100_cuda1.log 2>&1 &
+  > logs/kno_cfd1d_norm_ep100_cuda1.log 2>&1 &
 
 echo $!
 ```
@@ -418,10 +425,10 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd2d \
   --cfd-file "$DATA_ROOT/$CFD2D_FILE" \
-  --run-name kno_cfd2d_o32_m16_r8_ep100_cuda1 \
+  --run-name kno_cfd2d_norm_o32_m16_r8_ep100_cuda1 \
   --epochs 100 \
   --batch-size 8 \
   --o 32 \
@@ -432,9 +439,11 @@ nohup python experiments/train_kno_amfno.py \
   --reduced-resolution 2 \
   --reduced-resolution-t 1 \
   --reduced-batch 5 \
+  --cfd-normalize \
+  --max-grad-norm 1.0 \
   --device cuda \
   --output-dir outputs \
-  > logs/kno_cfd2d_ep100_cuda1.log 2>&1 &
+  > logs/kno_cfd2d_norm_ep100_cuda1.log 2>&1 &
 
 echo $!
 ```
@@ -457,10 +466,10 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd1d \
   --cfd-file "$DATA_ROOT/$CFD1D_FILE" \
-  --run-name kno_cfd1d_o32_m16_r8_ep500_seed42 \
+  --run-name kno_cfd1d_norm_o32_m16_r8_ep500_seed42 \
   --epochs 500 \
   --batch-size 32 \
   --seed 42 \
@@ -472,10 +481,12 @@ nohup python experiments/train_kno_amfno.py \
   --reduced-resolution 8 \
   --reduced-resolution-t 5 \
   --reduced-batch 5 \
+  --cfd-normalize \
+  --max-grad-norm 1.0 \
   --save-checkpoint \
   --device cuda \
   --output-dir outputs \
-  > logs/kno_cfd1d_ep500_seed42.log 2>&1 &
+  > logs/kno_cfd1d_norm_ep500_seed42.log 2>&1 &
 
 echo $!
 ```
@@ -487,7 +498,7 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark ns2d \
   --ns-file "$DATA_ROOT/$NS2D_V1E4" \
   --run-name kno_ns2d_v1e4_o32_m16_r8_ep500_seed42 \
@@ -514,10 +525,10 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd2d \
   --cfd-file "$DATA_ROOT/$CFD2D_FILE" \
-  --run-name kno_cfd2d_o32_m16_r8_ep500_seed42 \
+  --run-name kno_cfd2d_norm_o32_m16_r8_ep500_seed42 \
   --epochs 500 \
   --batch-size 8 \
   --seed 42 \
@@ -529,10 +540,12 @@ nohup python experiments/train_kno_amfno.py \
   --reduced-resolution 2 \
   --reduced-resolution-t 1 \
   --reduced-batch 5 \
+  --cfd-normalize \
+  --max-grad-norm 1.0 \
   --save-checkpoint \
   --device cuda \
   --output-dir outputs \
-  > logs/kno_cfd2d_ep500_seed42.log 2>&1 &
+  > logs/kno_cfd2d_norm_ep500_seed42.log 2>&1 &
 
 echo $!
 ```
@@ -544,7 +557,7 @@ source configs/data_paths.env
 export CUDA_VISIBLE_DEVICES=1
 mkdir -p logs
 
-nohup python experiments/train_kno_amfno.py \
+nohup python -u experiments/train_kno_amfno.py \
   --benchmark ns2d \
   --ns-file "$DATA_ROOT/$NS2D_V1E3" \
   --run-name kno_ns2d_v1e3_o32_m16_r8_ep500_seed42 \
@@ -575,13 +588,13 @@ watch -n 5 nvidia-smi
 查看日志：
 
 ```bash
-tail -f logs/kno_cfd1d_ep500_seed42.log
+tail -f logs/kno_cfd1d_norm_ep500_seed42.log
 ```
 
 查看指标：
 
 ```bash
-tail -n 5 outputs/kno_cfd1d_o32_m16_r8_ep500_seed42/metrics.csv
+tail -n 5 outputs/kno_cfd1d_norm_o32_m16_r8_ep500_seed42/metrics.csv
 ```
 
 如果显存不足：
@@ -600,37 +613,37 @@ tail -n 5 outputs/kno_cfd1d_o32_m16_r8_ep500_seed42/metrics.csv
 source configs/data_paths.env
 mkdir -p logs
 
-CUDA_VISIBLE_DEVICES=0 nohup python experiments/train_kno_amfno.py \
+CUDA_VISIBLE_DEVICES=0 nohup python -u experiments/train_kno_amfno.py \
   --benchmark ns2d --ns-file "$DATA_ROOT/$NS2D_V1E4" \
   --run-name kno_ns2d_v1e4_o32_m16_r8_ep500_seed42 \
   --epochs 500 --batch-size 10 --seed 42 --o 32 --modes 16 --decompose 8 \
   --t-in 10 --t-out 10 --save-checkpoint --device cuda --output-dir outputs \
   > logs/kno_ns2d_v1e4_gpu0.log 2>&1 &
 
-CUDA_VISIBLE_DEVICES=1 nohup python experiments/train_kno_amfno.py \
+CUDA_VISIBLE_DEVICES=1 nohup python -u experiments/train_kno_amfno.py \
   --benchmark ns2d --ns-file "$DATA_ROOT/$NS2D_V1E3" \
   --run-name kno_ns2d_v1e3_o32_m16_r8_ep500_seed42 \
   --epochs 500 --batch-size 10 --seed 42 --o 32 --modes 16 --decompose 8 \
   --t-in 10 --t-out 10 --save-checkpoint --device cuda --output-dir outputs \
   > logs/kno_ns2d_v1e3_gpu1.log 2>&1 &
 
-CUDA_VISIBLE_DEVICES=2 nohup python experiments/train_kno_amfno.py \
+CUDA_VISIBLE_DEVICES=2 nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd1d --cfd-file "$DATA_ROOT/$CFD1D_FILE" \
-  --run-name kno_cfd1d_o32_m16_r8_ep500_seed42 \
+  --run-name kno_cfd1d_norm_o32_m16_r8_ep500_seed42 \
   --epochs 500 --batch-size 32 --seed 42 --o 32 --modes 16 --decompose 8 \
   --initial-step 10 --t-train 21 \
   --reduced-resolution 8 --reduced-resolution-t 5 --reduced-batch 5 \
-  --save-checkpoint --device cuda --output-dir outputs \
-  > logs/kno_cfd1d_gpu2.log 2>&1 &
+  --cfd-normalize --max-grad-norm 1.0 --save-checkpoint --device cuda --output-dir outputs \
+  > logs/kno_cfd1d_norm_gpu2.log 2>&1 &
 
-CUDA_VISIBLE_DEVICES=3 nohup python experiments/train_kno_amfno.py \
+CUDA_VISIBLE_DEVICES=3 nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd2d --cfd-file "$DATA_ROOT/$CFD2D_FILE" \
-  --run-name kno_cfd2d_o32_m16_r8_ep500_seed42 \
+  --run-name kno_cfd2d_norm_o32_m16_r8_ep500_seed42 \
   --epochs 500 --batch-size 8 --seed 42 --o 32 --modes 16 --decompose 8 \
   --initial-step 10 --t-train 21 \
   --reduced-resolution 2 --reduced-resolution-t 1 --reduced-batch 5 \
-  --save-checkpoint --device cuda --output-dir outputs \
-  > logs/kno_cfd2d_gpu3.log 2>&1 &
+  --cfd-normalize --max-grad-norm 1.0 --save-checkpoint --device cuda --output-dir outputs \
+  > logs/kno_cfd2d_norm_gpu3.log 2>&1 &
 
 ps -u "$USER" -f | grep train_kno_amfno.py | grep -v grep
 ```
@@ -643,23 +656,23 @@ ps -u "$USER" -f | grep train_kno_amfno.py | grep -v grep
 source configs/data_paths.env
 mkdir -p logs
 
-CUDA_VISIBLE_DEVICES=4 nohup python experiments/train_kno_amfno.py \
+CUDA_VISIBLE_DEVICES=4 nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd2d --cfd-file "$DATA_ROOT/$CFD2D_FILE" \
-  --run-name kno_cfd2d_o64_m16_r8_ep500_seed42 \
+  --run-name kno_cfd2d_norm_o64_m16_r8_ep500_seed42 \
   --epochs 500 --batch-size 8 --seed 42 --o 64 --modes 16 --decompose 8 \
   --initial-step 10 --t-train 21 \
   --reduced-resolution 2 --reduced-resolution-t 1 --reduced-batch 5 \
-  --save-checkpoint --device cuda --output-dir outputs \
-  > logs/kno_cfd2d_o64_gpu4.log 2>&1 &
+  --cfd-normalize --max-grad-norm 1.0 --save-checkpoint --device cuda --output-dir outputs \
+  > logs/kno_cfd2d_norm_o64_gpu4.log 2>&1 &
 
-CUDA_VISIBLE_DEVICES=5 nohup python experiments/train_kno_amfno.py \
+CUDA_VISIBLE_DEVICES=5 nohup python -u experiments/train_kno_amfno.py \
   --benchmark cfd2d --cfd-file "$DATA_ROOT/$CFD2D_FILE" \
-  --run-name kno_cfd2d_o32_m24_r8_ep500_seed42 \
+  --run-name kno_cfd2d_norm_o32_m24_r8_ep500_seed42 \
   --epochs 500 --batch-size 8 --seed 42 --o 32 --modes 24 --decompose 8 \
   --initial-step 10 --t-train 21 \
   --reduced-resolution 2 --reduced-resolution-t 1 --reduced-batch 5 \
-  --save-checkpoint --device cuda --output-dir outputs \
-  > logs/kno_cfd2d_m24_gpu5.log 2>&1 &
+  --cfd-normalize --max-grad-norm 1.0 --save-checkpoint --device cuda --output-dir outputs \
+  > logs/kno_cfd2d_norm_m24_gpu5.log 2>&1 &
 ```
 
 ## 9. After A Run Finishes

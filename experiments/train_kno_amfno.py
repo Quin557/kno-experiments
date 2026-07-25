@@ -118,6 +118,41 @@ class CFDDatasetSingle(Dataset):
         return self.data[idx, ..., : self.initial_step, :], self.data[idx], self.grid
 
 
+class CFDNormalizer:
+    def __init__(self, mean, std, variable_names, eps=1e-6):
+        self.mean = mean
+        self.std = std.clamp_min(eps)
+        self.variable_names = variable_names
+        self.eps = eps
+
+    @classmethod
+    def from_data(cls, data, variable_names, eps=1e-6):
+        reduce_dims = tuple(range(data.ndim - 1))
+        mean = data.mean(dim=reduce_dims, keepdim=True)
+        std = data.std(dim=reduce_dims, keepdim=True, unbiased=False)
+        return cls(mean, std, variable_names, eps=eps)
+
+    def encode(self, x):
+        mean = self.mean.to(device=x.device, dtype=x.dtype)
+        std = self.std.to(device=x.device, dtype=x.dtype)
+        return (x - mean) / std
+
+    def decode(self, x):
+        mean = self.mean.to(device=x.device, dtype=x.dtype)
+        std = self.std.to(device=x.device, dtype=x.dtype)
+        return x * std + mean
+
+    def to_json(self):
+        return {
+            "enabled": True,
+            "type": "per_variable_train_standardization",
+            "eps": self.eps,
+            "variable_names": self.variable_names,
+            "mean": self.mean.reshape(-1).tolist(),
+            "std": self.std.reshape(-1).tolist(),
+        }
+
+
 class LinearEncoder(nn.Module):
     def __init__(self, in_dim, op_size):
         super().__init__()
@@ -293,6 +328,10 @@ def parse_args():
     parser.add_argument("--save-checkpoint", action="store_true")
     parser.add_argument("--log-every", type=int, default=1)
     parser.add_argument("--max-grad-norm", type=float, default=None)
+    parser.add_argument("--cfd-normalize", dest="cfd_normalize", action="store_true")
+    parser.add_argument("--no-cfd-normalize", dest="cfd_normalize", action="store_false")
+    parser.add_argument("--cfd-normalize-eps", type=float, default=1e-6)
+    parser.set_defaults(cfd_normalize=True)
     return parser.parse_args()
 
 
@@ -320,6 +359,12 @@ def write_env(out_dir, params):
             f.write(f"visible_device_0: {torch.cuda.get_device_name(0)}\n")
         f.write(f"params_count_complex_as_2: {params}\n")
         f.write(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', '')}\n")
+
+
+def write_cfd_normalizer(out_dir, normalizer):
+    obj = {"enabled": False} if normalizer is None else normalizer.to_json()
+    with (out_dir / "normalizer.json").open("w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=2, sort_keys=True)
 
 
 def require_path(name, path):
@@ -387,19 +432,32 @@ def build_cfd_loaders(args, dim):
     test_loader = DataLoader(
         test_data, batch_size=batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=True
     )
-    variables = 3 if dim == 1 else 4
+    variable_names = ["density", "pressure", "Vx"] if dim == 1 else ["density", "pressure", "Vx", "Vy"]
+    variables = len(variable_names)
     in_dim = args.initial_step * variables
     cls = KNO1dFlex if dim == 1 else KNO2dFlex
     model = cls(in_dim, variables, op_size=args.o, modes=args.modes, decompose=args.decompose)
+    normalizer = None
+    if args.cfd_normalize:
+        normalizer = CFDNormalizer.from_data(
+            train_data.data,
+            variable_names=variable_names,
+            eps=args.cfd_normalize_eps,
+        )
     meta = {
         "ntrain": len(train_data),
         "ntest": len(test_data),
         "t_out": args.t_train - args.initial_step,
         "variables": variables,
+        "variable_names": variable_names,
+        "normalizer": normalizer,
         "kind": f"cfd{dim}d",
     }
     first_x, first_y, first_grid = train_data[0]
     print(f"CFD-{dim}D data loaded: x {tuple(first_x.shape)}, y {tuple(first_y.shape)}, grid {tuple(first_grid.shape)}")
+    if normalizer is not None:
+        stats = normalizer.to_json()
+        print(f"CFD normalization enabled: mean={stats['mean']}, std={stats['std']}")
     return model, train_loader, test_loader, meta
 
 
@@ -592,21 +650,26 @@ def train_cfd(model, train_loader, test_loader, args, device, out_dir, meta):
 
 
 def cfd_rollout(model, xx, yy, args, meta, mse, rel, train):
+    normalizer = meta.get("normalizer")
+    xx_model = normalizer.encode(xx) if normalizer is not None else xx
+    yy_model = normalizer.encode(yy) if normalizer is not None else yy
     pred = yy[..., : args.initial_step, :]
     pred_mse = recon_mse = 0.0
     step_rel = 0.0
-    inp = xx
+    inp = xx_model
     inp_shape = list(inp.shape[:-2]) + [-1]
     for t in range(args.initial_step, args.t_train):
         model_in = inp.reshape(inp_shape)
-        y = yy[..., t : t + 1, :]
-        im, recon = model(model_in)
-        im = im.unsqueeze(-2)
-        pred_mse = pred_mse + mse(im, y)
+        y_model = yy_model[..., t : t + 1, :]
+        y_raw = yy[..., t : t + 1, :]
+        im_model, recon = model(model_in)
+        im_model = im_model.unsqueeze(-2)
+        im_raw = normalizer.decode(im_model) if normalizer is not None else im_model
+        pred_mse = pred_mse + mse(im_model, y_model)
         recon_mse = recon_mse + mse(recon, model_in)
-        step_rel = step_rel + rel(im, y)
-        pred = torch.cat((pred, im), dim=-2)
-        inp = torch.cat((inp[..., 1:, :], im), dim=-2)
+        step_rel = step_rel + rel(im_raw, y_raw)
+        pred = torch.cat((pred, im_raw), dim=-2)
+        inp = torch.cat((inp[..., 1:, :], im_model), dim=-2)
     return pred, pred_mse, recon_mse, step_rel
 
 
@@ -646,12 +709,14 @@ def main():
         params = count_params(model)
         print(f"parameters: {params}")
         write_env(out_dir, params)
+        write_cfd_normalizer(out_dir, meta.get("normalizer"))
         train_cfd(model, train_loader, test_loader, args, device, out_dir, meta)
     elif args.benchmark == "cfd2d":
         model, train_loader, test_loader, meta = build_cfd_loaders(args, dim=2)
         params = count_params(model)
         print(f"parameters: {params}")
         write_env(out_dir, params)
+        write_cfd_normalizer(out_dir, meta.get("normalizer"))
         train_cfd(model, train_loader, test_loader, args, device, out_dir, meta)
     else:
         raise ValueError(f"Unknown benchmark: {args.benchmark}")
