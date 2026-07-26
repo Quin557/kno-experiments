@@ -9,6 +9,7 @@
 | CFD-1D | `kno_cfd1d_o32_m16_r8_ep500_seed42` | `4.2512e-01` | `9.9900e-01` | Completed but unsuitable; likely needs variable normalization/stabilization. |
 | CFD-1D | `kno_cfd1d_norm_o32_m16_r8_ep500_seed42` | `3.5024e-02` | `3.5331e-02` | Stable after per-variable CFD normalization; use this as the current KNO CFD-1D result. |
 | CFD-2D | `kno_cfd2d_norm_o32_m16_r8_ep500_seed42` | `4.4433e-02` | `4.4433e-02` | Stable and still improving at the final epoch, but far behind AM-FNO CFD-2D. |
+| CFD-2D | `kno_cfd2d_norm_o64_m16_r8_ep100_seed42` | `6.3840e-02` | `1.7205e-01` | Wider model improves the best first-100-epoch value slightly over `o=32`, but is unstable and should not be continued directly. |
 
 ## Baseline Reference
 
@@ -20,4 +21,4 @@
 
 ## Recommendation
 
-CFD-2D is complete and stable, but the baseline gap is large. Do one short targeted tuning pass before freezing the main results: first widen the latent/operator size to `o=64` while keeping `modes=16`; if that helps at 100 epochs, continue it to 500 epochs. If it does not help, keep the existing CFD-2D result and move to final report writing rather than spending more GPU time on broad tuning.
+The `o=64` CFD-2D tuning run did not meet the continuation threshold: its best 100-epoch result is only modestly better than the `o=32` first-100-epoch result, while its final and late-epoch metrics are much worse. Do not continue this exact setting to 500 epochs. Either freeze `kno_cfd2d_norm_o32_m16_r8_ep500_seed42` as the main CFD-2D result, or run one final stabilization check with `o=64`, lower learning rate `5e-4`, and `max_grad_norm=0.5` for 100 epochs before writing the final report.
