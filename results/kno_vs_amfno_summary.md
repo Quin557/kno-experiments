@@ -8,6 +8,7 @@
 | NS-2D v1e-3 | `kno_ns2d_v1e3_o32_m16_r8_ep500_seed42` | `3.5535e-03` | `4.0387e-03` | Stable supplemental KNO result; not directly comparable with the v1e-4 AM-FNO local split. |
 | CFD-1D | `kno_cfd1d_o32_m16_r8_ep500_seed42` | `4.2512e-01` | `9.9900e-01` | Completed but unsuitable; likely needs variable normalization/stabilization. |
 | CFD-1D | `kno_cfd1d_norm_o32_m16_r8_ep500_seed42` | `3.5024e-02` | `3.5331e-02` | Stable after per-variable CFD normalization; use this as the current KNO CFD-1D result. |
+| CFD-2D | `kno_cfd2d_norm_o32_m16_r8_ep500_seed42` | `4.4433e-02` | `4.4433e-02` | Stable and still improving at the final epoch, but far behind AM-FNO CFD-2D. |
 
 ## Baseline Reference
 
@@ -15,7 +16,8 @@
 |---|---:|---:|---:|
 | NS-2D | `8.51e-02` | `2.4848e-02` on local v1e-4 split | `6.2351e-02` |
 | CFD-1D | `1.47e-02` step | `1.5164e-02` full / `1.4850e-02` step | `3.5024e-02` full / `3.4501e-02` step |
+| CFD-2D | `2.16e-03` step | `2.7686e-03` full / `2.7442e-03` step | `4.4433e-02` full / `4.2271e-02` step |
 
 ## Recommendation
 
-NS-2D v1e-3 is complete and healthy. Next, run `CFD-2D` with the same normalization path used by the successful CFD-1D run. Start with 100 epochs; if `test_full_rel_l2` is decreasing or stable rather than diverging, continue to the full 500-epoch CFD-2D run.
+CFD-2D is complete and stable, but the baseline gap is large. Do one short targeted tuning pass before freezing the main results: first widen the latent/operator size to `o=64` while keeping `modes=16`; if that helps at 100 epochs, continue it to 500 epochs. If it does not help, keep the existing CFD-2D result and move to final report writing rather than spending more GPU time on broad tuning.
