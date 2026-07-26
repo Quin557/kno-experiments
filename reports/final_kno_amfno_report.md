@@ -198,6 +198,38 @@ epoch 499 full: 4.4433e-02
 
 低学习率和更强裁剪让最终值从 `1.7205e-01` 改善到 `9.0109e-02`，但最佳值只从 `6.3840e-02` 改善到 `6.2946e-02`，仍未达到预设继续训练门槛 `5.5e-02`。因此不建议继续 `o=64` 500 epoch。
 
+### 5.4 AM-FNO 与 KNO 的关键差异及误差来源
+
+AM-FNO 和 KNO 都在 Fourier 空间中学习算子，但二者的建模目标和参数使用方式不同。这也是本次实验中 NS-2D 可比较、CFD 尤其是 CFD-2D 差距明显的主要模型层面原因。
+
+| Aspect | AM-FNO local reproduction | KNO implementation in this project | Effect in this experiment |
+|---|---|---|---|
+| Fourier kernel | 使用 FNO 主干，4 个 spectral block；MLP/KAN 根据频率坐标生成复数 Fourier kernel。 | encoder 将输入映射到观测空间；低频 Fourier modes 上使用可学习 Koopman matrix。 | AM-FNO 的 kernel 更直接面向空间频率响应；KNO 的 kernel 更强调观测空间时间推进。 |
+| Time modeling | 对输入窗口到下一帧/输出变量做 supervised mapping，再 rollout。 | 在观测空间中重复 `decompose=8` 次 Koopman update，强调同一线性推进算子的时间复合。 | KNO 对 NS-2D 这类单变量演化较自然；CFD 多变量耦合需要额外适配。 |
+| Spatial coordinates | AM-FNO 将 grid 坐标拼到输入通道，1D 加 `x`，2D 加 `(x,y)`。 | 当前 KNO 训练脚本读取 grid，但模型 forward 未显式使用 grid。 | CFD-2D 中空间位置和边界/周期结构信息对局部模式有帮助，KNO 少了这一显式条件。 |
+| Multi-variable handling | 输入维度直接包含历史窗口、变量和坐标，并通过 FNO block 混合。 | CFD 中将 `initial_step * variables` 压平为通道，再用线性 encoder 映射到 `o` 维。 | KNO 的变量耦合主要依赖单个线性 encoder，缺少变量专用 encoder 或 cross-variable block。 |
+| High-frequency/local detail | 每个 spectral block 后有 pointwise MLP，且 Fourier kernel 覆盖完整频率网格。 | 仅保留 `modes=16` 的低频 Koopman matrix，另有 1x1 conv high-frequency complement。 | CFD-2D 的局部高频和变量耦合更复杂，KNO 的高频补偿能力不足。 |
+| Loss design | 主要优化预测 relative L2/rollout 任务。 | 使用 `5 * prediction_mse + 0.5 * reconstruction_mse`，还要约束观测空间可重构。 | reconstruction loss 有助于 KNO 表示稳定，但也会占用容量；CFD 精度任务上不一定最优。 |
+
+参数量与训练成本对比如下。AM-FNO 数字来自本地复现 summary 日志，KNO 数字来自本项目 `outputs/*/env.txt` 与 `metrics.csv`。
+
+| Benchmark | AM-FNO Params | KNO Params | Param Ratio | AM-FNO Avg Sec/Epoch | KNO Avg Sec/Epoch | Cost Observation |
+|---|---:|---:|---:|---:|---:|---|
+| NS-2D v1e-4 | 1,136,929 | 526,059 | AM-FNO 2.16x KNO | 11.06 | 14.48 | KNO 参数更少但略慢，主要由于自回归 rollout 和复数 Koopman 操作。 |
+| CFD-1D | 588,419 | 35,905 | AM-FNO 16.39x KNO | 9.34 | 8.45 | KNO 极小模型已可稳定训练，但容量明显不足，精度约差 2.3x。 |
+| CFD-2D | 2,286,180 | 528,108 | AM-FNO 4.33x KNO | 14.29 | 29.94 | KNO 参数更少但约 2.10x 慢；CFD-2D 中计算瓶颈来自 2D FFT、复数矩阵乘和 11-step rollout。 |
+
+这组对比说明，CFD-2D 差距不是简单的“参数越多越好”。AM-FNO 的参数更多，但这些参数主要服务于多层频域 kernel 生成和局部 pointwise mixing，直接增强空间频率响应；KNO 的参数较少，集中在观测空间 encoder/decoder 与 Koopman matrix，适合学习可复合的时间推进，但对 CFD-2D 的多变量局部结构表达不足。
+
+从模型设计看，本次 CFD 差距主要来自四点：
+
+1. **变量耦合不足。** CFD-2D 的 density、pressure、Vx、Vy 之间存在强耦合；当前 KNO 只是把 10 帧历史和 4 个变量压平到 40 个通道，再用一个线性 encoder 混合，缺少 AM-FNO 那种多层 spectral block 的反复交互。
+2. **空间条件不足。** AM-FNO 显式拼接 grid 坐标；当前 KNO 没有把 grid 输入模型。对周期 CFD 数据这不是致命问题，但会削弱模型对空间结构和局部变化的条件化能力。
+3. **低频 Koopman 偏置。** KNO 的 Koopman matrix 只作用在低频 modes 上，高频部分主要靠 1x1 conv 补偿；CFD-2D 的小尺度涡旋/激波样变化更依赖局部与高频表达。
+4. **容量分配不同。** CFD-2D 主 KNO 只有约 52.8 万参数，而 AM-FNO 约 228.6 万参数。扩大 KNO 到 `o=64` 后参数量接近 AM-FNO（约 210.7 万），但早期误差只小幅改善且震荡更强，说明问题不只是容量，而是容量放在了不够适合 CFD-2D 的 Koopman latent matrix 上。
+
+因此，若后续希望缩小 CFD-2D 差距，优先方向不是继续盲目增大 `o`，而是改模型结构：加入 grid conditioning、变量专用 encoder、跨变量 mixing、强局部卷积分支，或设计 rollout-aware loss。当前结果更适合解释为：KNO 的时间复合优势在 NS-2D 上比较自然，但原始 compact KNO 迁移到 AM-FNO 的多变量 CFD 任务时，需要额外结构改造。
+
 ## 6. Discussion
 
 ### 6.1 What Worked
